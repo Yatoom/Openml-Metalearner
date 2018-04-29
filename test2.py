@@ -8,10 +8,6 @@ with open('flow_6794_100_random.json', 'r') as infile:
 
 description_data = requests.get("http://openml.org/api/v1/json/flow/6794").json()['flow']['parameter']
 conv = Converter(params_data, description_data)
-result = conv.transform()
-inverse = conv.inverse(result)
-flats = conv.get_vectors(result)
-sizes = conv.get_item_sizes()
-reconstruction = conv.reconstruct(sizes, flats[0])
-inverted = conv.inverse(pd.DataFrame([reconstruction]))
+vectors = conv.get_vectors()
+params = conv.get_params(vectors)
 print("data")
