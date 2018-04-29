@@ -11,7 +11,8 @@ class Converter:
         self.frame = pd.DataFrame([j for i in params.values() for j in i])
         self.preprocessed = self._preprocess(self.frame)
         self.distinct = self._get_distinct_values(self.preprocessed)
-        self.mapping = self._create_mapping(self.distinct)
+        self.num_distinct = dict([(i, len(j)) for i, j in self.distinct.items()])
+        self.mapping, self.reverser = self._create_mapping(self.distinct)
 
     def _preprocess(self, frame):
 
@@ -41,39 +42,52 @@ class Converter:
             result[i] = sorted(frame[i].unique().tolist())
         return result
 
-    def _create_transformer(self, transformer, reshape=False):
+    def _create_transformer(self, transformer):
         def transform(x):
-            r = x
-            r = np.array(r).reshape(-1, 1) if reshape else r
+            r = np.array(x).reshape(-1, 1)
             return transformer.transform(r)
 
-        return transform
+        def inverse_transform(x):
+            r = np.array(x).reshape(-1, 1)
+            return transformer.inverse_transform(r)
+
+        return transform, inverse_transform
 
     def _create_encoder(self, transformer):
         def transform(x):
             length = len(transformer.classes_)
             return [self.one_hot(i, length) for i in transformer.transform(x)]
 
-        return transform
+        def inverse_transform(x):
+            # Find the index of the 1.
+            indices = [np.where(np.array(i) == 1)[0][0] for i in x]
+            return transformer.inverse_transform(indices)
+
+        return transform, inverse_transform
 
     def _create_mapping(self, distinct):
         mapping = {}
+        reverse_mapping = {}
 
         # Create mapping forward and back
         for i in self.frame.columns:
             data_type = self.description[i]['data_type']
 
             if data_type in ["numeric", "integer"]:
-                transformer = self._create_transformer(StandardScaler().fit(np.array(distinct[i]).reshape(-1, 1)), reshape=True)
+                transformer, reverser = self._create_transformer(StandardScaler().fit(np.array(distinct[i]).reshape(-1, 1)))
                 mapping[i] = transformer
+                reverse_mapping[i] = reverser
 
             if data_type in ["discrete"]:
-                mapping[i] = self._create_encoder(LabelEncoder().fit(distinct[i]))
+                transformer, reverser = self._create_encoder(LabelEncoder().fit(distinct[i]))
+                mapping[i] = transformer
+                reverse_mapping[i] = reverser
 
             if data_type in ["logical"]:
                 mapping[i] = lambda x: [{"FALSE": 0, "TRUE": 1}.get(i, 0.5) for i in x]
+                reverse_mapping[i] = lambda x: ["FALSE" if i < 0.5 else "TRUE" if i > 0.5 else "default" for i in x]
 
-        return mapping
+        return mapping, reverse_mapping
 
     @staticmethod
     def one_hot(hot_index, length):
@@ -85,7 +99,13 @@ class Converter:
             f[i] = self.mapping[i](f[i])
         return f
 
-    def get_flat(self, frame):
+    def inverse(self, frame):
+        f = frame.copy()
+        for i in f.columns:
+            f[i] = self.reverser[i](f[i])
+        return f
+
+    def get_vectors(self, frame):
         values = [i.values() for i in frame.to_dict(orient="records")]
 
         result = []
@@ -93,6 +113,15 @@ class Converter:
             result.append(self._flatten_iterables(i))
 
         return result
+
+    def get_item_sizes(self):
+
+        how_many = {}
+        for i in self.frame.columns:
+            how_many[i] = self.num_distinct[i] if self.description[i]['data_type'] in ["discrete", "logical"] else 1
+
+        return how_many
+
 
     @staticmethod
     def _flatten_iterables(values):
