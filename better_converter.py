@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 import numpy as np
@@ -9,9 +11,10 @@ class Converter:
         self.params = params
         self.description = dict([(i['name'], i) for i in description])
         self.frame = pd.DataFrame([j for i in params.values() for j in i])
+        self.columns = self.frame.columns.tolist()
         self.preprocessed = self._preprocess(self.frame)
         self.distinct = self._get_distinct_values(self.preprocessed)
-        self.num_distinct = dict([(i, len(j)) for i, j in self.distinct.items()])
+        self.num_distinct = OrderedDict(([(i, len(j)) for i, j in self.distinct.items()]))
         self.mapping, self.reverser = self._create_mapping(self.distinct)
 
     def _preprocess(self, frame):
@@ -20,7 +23,7 @@ class Converter:
         f = frame.copy()
         f = f.fillna("default")
 
-        for i in self.frame.columns:
+        for i in self.columns:
             # Get data type
             data_type = self.description[i]['data_type']
 
@@ -38,11 +41,12 @@ class Converter:
 
     def _get_distinct_values(self, frame):
         result = {}
-        for i in frame.columns:
+        for i in self.columns:
             result[i] = sorted(frame[i].unique().tolist())
         return result
 
-    def _create_transformer(self, transformer):
+    @staticmethod
+    def _create_transformer(transformer):
         def transform(x):
             r = np.array(x).reshape(-1, 1)
             return transformer.transform(r)
@@ -53,10 +57,11 @@ class Converter:
 
         return transform, inverse_transform
 
-    def _create_encoder(self, transformer):
+    @staticmethod
+    def _create_encoder(transformer):
         def transform(x):
             length = len(transformer.classes_)
-            return [self.one_hot(i, length) for i in transformer.transform(x)]
+            return [Converter.one_hot(i, length) for i in transformer.transform(x)]
 
         def inverse_transform(x):
             # Find the index of the 1.
@@ -70,7 +75,7 @@ class Converter:
         reverse_mapping = {}
 
         # Create mapping forward and back
-        for i in self.frame.columns:
+        for i in self.columns:
             data_type = self.description[i]['data_type']
 
             if data_type in ["numeric", "integer"]:
@@ -101,7 +106,7 @@ class Converter:
 
     def inverse(self, frame):
         f = frame.copy()
-        for i in f.columns:
+        for i in self.columns:
             f[i] = self.reverser[i](f[i])
         return f
 
@@ -116,11 +121,30 @@ class Converter:
 
     def get_item_sizes(self):
 
-        how_many = {}
-        for i in self.frame.columns:
-            how_many[i] = self.num_distinct[i] if self.description[i]['data_type'] in ["discrete", "logical"] else 1
+        how_many = OrderedDict()
+        for i in self.columns:
+            how_many[i] = 1
+
+            if self.description[i]['data_type'] in ["discrete"]:
+                how_many[i] = self.num_distinct[i]
+
+            elif self.description[i]['data_type'] in ["logical"]:
+                how_many[i] = 1
 
         return how_many
+
+    def reconstruct(self, item_sizes, vector):
+        vector = np.array(vector)
+        result = {}
+        i = 0
+        for param, number in item_sizes.items():
+            if number == 1:
+                result[param] = vector[i]
+            else:
+                indices = range(i, i + number)
+                result[param] = vector[indices]
+            i += number
+        return result
 
 
     @staticmethod
