@@ -12,6 +12,7 @@ class Converter:
         self.description = dict([(i['name'], i) for i in description])
         self.frame = pd.DataFrame([j for i in params.values() for j in i])
         self.columns = self.frame.columns.tolist()
+        self.types = [self.description[i]['data_type'] for i in self.columns]
         self.preprocessed = self._preprocess(self.frame)
         self.distinct = self._get_distinct_values(self.preprocessed)
         self.num_distinct = OrderedDict(([(i, len(j)) for i, j in self.distinct.items()]))
@@ -127,9 +128,6 @@ class Converter:
 
             if self.description[i]['data_type'] in ["discrete"]:
                 how_many[i] = self.num_distinct[i]
-
-            elif self.description[i]['data_type'] in ["logical"]:
-                how_many[i] = 1
 
         return how_many
 

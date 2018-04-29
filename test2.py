@@ -13,5 +13,5 @@ inverse = conv.inverse(result)
 flats = conv.get_vectors(result)
 sizes = conv.get_item_sizes()
 reconstruction = conv.reconstruct(sizes, flats[0])
-
+inverted = conv.inverse(pd.DataFrame([reconstruction]))
 print("data")
