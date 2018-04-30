@@ -14,6 +14,37 @@ OPENML_100 = [3510, 36, 24, 9970, 9981, 2075, 34536, 34539, 21, 14964, 20, 14966
 BASE = "http://openml.org/api/v1/json"
 
 
+def load_task_qualities(task_id):
+    task_data = requests.get(
+        f"{BASE}/task/{task_id}"
+    ).json()
+
+    dataset_id = task_data['task']['input'][0]['data_set']['data_set_id']
+
+    dataset_data = requests.get(
+        f"{BASE}/data/qualities/{dataset_id}"
+    ).json()
+
+    data = dataset_data['data_qualities']['quality']
+    filtered = [i for i in data if not (isinstance(i['value'], list) or np.isnan(float(i['value'])))]
+
+    qualities = dict([(i['name'], float(i['value'])) for i in filtered])
+
+    return qualities
+
+
+def load_all_qualities():
+    qualities = {}
+    for i in tqdm(OPENML_100):
+        qualities[i] = load_task_qualities(i)
+    return qualities
+
+
+q = load_all_qualities()
+with open('openml_100_quantities.json', 'w') as outfile:
+    json.dump(q, outfile)
+
+
 def load_flow_runs(flow_id, max_per_task=100):
     params = {}
     scores = {}
@@ -51,10 +82,10 @@ def get_param_values(setup_id):
         requests.get(f"http://openml.org/api/v1/json/setup/{setup_id}").json()['setup_parameters']['parameter']
     ])
 
-
-all_params, all_scores = load_flow_runs(6794)
-with open('flow_6794_100_params.json', 'w') as outfile:
-    json.dump(all_params, outfile)
-
-with open('flow_6794_100_scores.json', 'w') as outfile:
-    json.dump(all_scores, outfile)
+#
+# all_params, all_scores = load_flow_runs(6794)
+# with open('flow_6794_100_params.json', 'w') as outfile:
+#     json.dump(all_params, outfile)
+#
+# with open('flow_6794_100_scores.json', 'w') as outfile:
+#     json.dump(all_scores, outfile)
