@@ -61,7 +61,7 @@ model.compile(optimizer='rmsprop',
               metrics=['mse'])
 model.summary()
 
-history = model.fit(X, y, epochs=100, batch_size=32, validation_split=0.1, callbacks=[History()])
+history = model.fit(X, y, epochs=20, batch_size=32, validation_split=0.3, callbacks=[History()])
 
 print("Best:", np.min(history.history['val_mean_squared_error']))
 # summarize history for accuracy
