@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-from better_converter import Converter
+from converter import Converter
 
 
 class Merger:
