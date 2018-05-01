@@ -17,6 +17,10 @@ class Loader:
     BASE = "http://openml.org/api/v1/json"
 
     @staticmethod
+    def get_description(flow_id):
+        return requests.get(f"{Loader.BASE}/flow/{flow_id}").json()['flow']['parameter']
+
+    @staticmethod
     def get_flow_data(flow_id, max_per_task=100):
         """
         Load parameter settings ans scores for flow on 100 different tasks.
@@ -29,12 +33,17 @@ class Loader:
         scores_path = f'data/flow_{flow_id}_{max_per_task}_scores.json'
         params_exist = os.path.isfile(params_path)
         scores_exist = os.path.isfile(scores_path)
+
+        print(f"In cache: {params_exist}, {scores_exist}")
+
         if not (params_exist and scores_exist):
             Loader._import_flow_data(flow_id, max_per_task)
         with open(params_path, 'r') as f:
             params_json = json.load(f)
         with open(scores_path, 'r') as f:
             scores_json = json.load(f)
+
+        print("Loaded!")
         return params_json, scores_json
 
     @staticmethod
@@ -44,15 +53,15 @@ class Loader:
         :return: (dict) a mapping of task ids to their qualities
         """
 
-        if not os.path.isfile('data/openml_100_quantities.json'):
+        if not os.path.isfile('data/openml_100_qualities.json'):
             q = Loader._load_all_qualities()
-            with open('data/openml_100_quantities.json', 'w') as outfile:
+            with open('data/openml_100_qualities.json', 'w') as outfile:
                 json.dump(q, outfile)
 
-        with open('data/openml_100_quantities.json', 'r') as f:
-            quantities_json = json.load(f)
+        with open('data/openml_100_qualities.json', 'r') as f:
+            qualities_json = json.load(f)
 
-        return quantities_json
+        return qualities_json
 
     @staticmethod
     def _import_flow_data(flow_id, max_per_task):
@@ -64,10 +73,10 @@ class Loader:
         """
 
         all_params, all_scores = Loader._load_flow_runs(flow_id, max_per_task)
-        with open(f'data/flow_{flow_id}_params.json', 'w') as outfile:
+        with open(f'data/flow_{flow_id}_{max_per_task}_params.json', 'w') as outfile:
             json.dump(all_params, outfile)
 
-        with open(f'data/flow_{flow_id}_scores.json', 'w') as outfile:
+        with open(f'data/flow_{flow_id}_{max_per_task}_params.json', 'w') as outfile:
             json.dump(all_scores, outfile)
 
         return None
